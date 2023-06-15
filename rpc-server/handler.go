@@ -2,30 +2,32 @@ package main
 
 import (
 	"context"
-	"math/rand"
+	"log"
 
 	"github.com/TikTokTechImmersion/assignment_demo_2023/rpc-server/kitex_gen/rpc"
+	"gorm.io/gorm"
 )
 
 // IMServiceImpl implements the last service interface defined in the IDL.
-type IMServiceImpl struct{}
+type IMServiceImpl struct {
+	db *gorm.DB
+}
 
 func (s *IMServiceImpl) Send(ctx context.Context, req *rpc.SendRequest) (*rpc.SendResponse, error) {
+	newMessage := req.GetMessage()
+	s.db.Create(&newMessage)
+	log.Println(newMessage.Text)
 	resp := rpc.NewSendResponse()
-	resp.Code, resp.Msg = areYouLucky()
+	resp.Code = 0
+	resp.Msg = "Received: " + newMessage.Text + "\n"
 	return resp, nil
 }
 
 func (s *IMServiceImpl) Pull(ctx context.Context, req *rpc.PullRequest) (*rpc.PullResponse, error) {
 	resp := rpc.NewPullResponse()
-	resp.Code, resp.Msg = areYouLucky()
+	resp.Code = 0
+	s.db.Where("chat = ?", req.Chat).Where("send_time > ?",
+		req.Cursor).Limit(int(req.Limit)).Find(&resp.Messages)
+	log.Println(resp.Messages)
 	return resp, nil
-}
-
-func areYouLucky() (int32, string) {
-	if rand.Int31n(2) == 1 {
-		return 0, "success"
-	} else {
-		return 500, "oops"
-	}
 }
